@@ -65,7 +65,7 @@ def download_video():
 
     filename = datetime.now().strftime("%d_%m_%H_%M_%S_") + ".mp4"
     print("Downloading file now!")
-    download_file(video_download_url, filename)
+    download_file(video_download_url, filename) 
 
     return send_file(filename, as_attachment=True)
 
