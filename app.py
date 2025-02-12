@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file  # Ensure send_file is imported
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import requests
 from bs4 import BeautifulSoup
@@ -71,6 +71,7 @@ def download_video():
             with open(filename, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=1024):
                     f.write(chunk)
+            print(f"Video downloaded and saved as: {filename}")
             return send_file(filename, as_attachment=True)  # Send the downloaded file
         else:
             return jsonify({'error': 'Failed to download video.'}), 500
