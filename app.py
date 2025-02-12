@@ -1,19 +1,21 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file  # Ensure send_file is imported
 from flask_cors import CORS
 import requests
 from bs4 import BeautifulSoup
 import re
-from datetime import datetime
-from pymongo import MongoClient
-import gridfs
+from datetime import datetime, timedelta
+import os
+import threading
+import time
 
 app = Flask(__name__)
 CORS(app)
 
-# MongoDB connection
-mongo_client = MongoClient("mongodb+srv://raghavalawrence095:zktLJ8e0C0sJkUAM@cluster0.wgapa.mongodb.net/")
-db = mongo_client['your_database_name']  # Replace with your database name
-fs = gridfs.GridFS(db)  # Create a GridFS instance
+# Directory to store downloaded videos
+VIDEO_STORAGE_DIR = 'videos'
+
+# Ensure the video storage directory exists
+os.makedirs(VIDEO_STORAGE_DIR, exist_ok=True)
 
 # Function to fetch video URL from Pinterest
 def fetch_video_url(page_url):
@@ -61,18 +63,43 @@ def download_video():
 
     print("Downloading file now!")
 
-    # Save video file to MongoDB using GridFS
+    # Download video file and save it to the local storage
     try:
         response = requests.get(video_download_url, stream=True)
         if response.status_code == 200:
-            # Store video in GridFS
-            fs.put(response.raw, filename=datetime.now().strftime("%d_%m_%H_%M_%S_") + ".mp4", content_type='video/mp4')
-            return jsonify({'message': 'Video downloaded and saved to MongoDB.'}), 200
+            filename = os.path.join(VIDEO_STORAGE_DIR, datetime.now().strftime("%d_%m_%H_%M_%S_") + ".mp4")
+            with open(filename, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=1024):
+                    f.write(chunk)
+            return send_file(filename, as_attachment=True)  # Send the downloaded file
         else:
             return jsonify({'error': 'Failed to download video.'}), 500
     except Exception as e:
         print(f"Error downloading video: {e}")
         return jsonify({'error': 'An error occurred while downloading the video.'}), 500
+
+def cleanup_old_videos():
+    """Remove video files older than 5 minutes."""
+    while True:
+        # Define how old a video must be to be deleted (e.g., older than 5 minutes)
+        minutes_to_keep = 5
+        cutoff_time = datetime.now() - timedelta(minutes=minutes_to_keep)
+
+        # Iterate through the video storage directory and delete old files
+        for filename in os.listdir(VIDEO_STORAGE_DIR):
+            file_path = os.path.join(VIDEO_STORAGE_DIR, filename)
+            if os.path.isfile(file_path):
+                file_creation_time = datetime.fromtimestamp(os.path.getctime(file_path))
+                if file_creation_time < cutoff_time:
+                    os.remove(file_path)
+                    print(f"Deleted old video file: {filename}")
+
+        # Sleep for a specified interval before checking again (e.g., every minute)
+        time.sleep(60)
+
+# Start the cleanup thread
+cleanup_thread = threading.Thread(target=cleanup_old_videos, daemon=True)
+cleanup_thread.start()
 
 if __name__ == '__main__':
     app.run(debug=True)
