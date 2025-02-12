@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, send_file
+from flask_cors import CORS  # Import CORS
 import requests
 from bs4 import BeautifulSoup
 from tqdm import tqdm
@@ -7,6 +8,7 @@ from datetime import datetime
 import os
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 
 # Download function
 def download_file(url, filename):
@@ -38,6 +40,8 @@ def fetch_video_url(page_url):
         return None
 
     soup = BeautifulSoup(body.content, "html.parser")  # Parsing the content
+    print(soup.prettify())  # Print the HTML content for debugging
+
     extract_video_tag = soup.find("video", class_="hwa kVc MIw L4E")
 
     if extract_video_tag is None:
@@ -65,7 +69,7 @@ def download_video():
 
     filename = datetime.now().strftime("%d_%m_%H_%M_%S_") + ".mp4"
     print("Downloading file now!")
-    download_file(video_download_url, filename) 
+    download_file(video_download_url, filename)
 
     return send_file(filename, as_attachment=True)
 
