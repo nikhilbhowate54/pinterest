@@ -62,13 +62,17 @@ def download_video():
     print("Downloading file now!")
 
     # Save video file to MongoDB using GridFS
-    response = requests.get(video_download_url, stream=True)
-    if response.status_code == 200:
-        # Store video in GridFS
-        fs.put(response.raw, filename=datetime.now().strftime("%d_%m_%H_%M_%S_") + ".mp4", content_type='video/mp4')
-        return jsonify({'message': 'Video downloaded and saved to MongoDB.'}), 200
-    else:
-        return jsonify({'error': 'Failed to download video.'}), 500
+    try:
+        response = requests.get(video_download_url, stream=True)
+        if response.status_code == 200:
+            # Store video in GridFS
+            fs.put(response.raw, filename=datetime.now().strftime("%d_%m_%H_%M_%S_") + ".mp4", content_type='video/mp4')
+            return jsonify({'message': 'Video downloaded and saved to MongoDB.'}), 200
+        else:
+            return jsonify({'error': 'Failed to download video.'}), 500
+    except Exception as e:
+        print(f"Error downloading video: {e}")
+        return jsonify({'error': 'An error occurred while downloading the video.'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
