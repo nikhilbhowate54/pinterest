@@ -1,13 +1,11 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
 from bs4 import BeautifulSoup
-from tqdm import tqdm
 import re
 from datetime import datetime
-import os
 from pymongo import MongoClient
-import gridfs  # Import GridFS
+import gridfs
 
 app = Flask(__name__)
 CORS(app)
@@ -16,17 +14,6 @@ CORS(app)
 mongo_client = MongoClient("mongodb+srv://raghavalawrence095:zktLJ8e0C0sJkUAM@cluster0.wgapa.mongodb.net/")
 db = mongo_client['your_database_name']  # Replace with your database name
 fs = gridfs.GridFS(db)  # Create a GridFS instance
-
-# Download function
-def download_file(url, filename):
-    response = requests.get(url, stream=True)
-    file_size = int(response.headers.get('Content-Length', 0))
-    progress = tqdm(response.iter_content(1024), f'Downloading {filename}', total=file_size, unit='B', unit_scale=True, unit_divisor=1024)
-
-    with open(filename, 'wb') as f:
-        for data in progress.iterable:
-            f.write(data)
-            progress.update(len(data))
 
 # Function to fetch video URL from Pinterest
 def fetch_video_url(page_url):
@@ -72,23 +59,16 @@ def download_video():
     if not video_download_url:
         return jsonify({'error': 'Invalid URL or unable to fetch video'}), 400
 
-    filename = datetime.now().strftime("%d_%m_%H_%M_%S_") + ".mp4"
     print("Downloading file now!")
-    download_file(video_download_url, filename)
 
     # Save video file to MongoDB using GridFS
-    with open(filename, 'rb') as video_file:
-        fs.put(video_file, filename=filename, content_type='video/mp4')  # Store video in GridFS
-
-    # Optionally, you can also store metadata in a separate collection if needed
-    video_data = {
-        'url': video_download_url,
-        'filename': filename,
-        'downloaded_at': datetime.now()
-    }
-    # videos_collection.insert_one(video_data)  # Uncomment if you want to store metadata
-
-    return send_file(filename, as_attachment=True)
+    response = requests.get(video_download_url, stream=True)
+    if response.status_code == 200:
+        # Store video in GridFS
+        fs.put(response.raw, filename=datetime.now().strftime("%d_%m_%H_%M_%S_") + ".mp4", content_type='video/mp4')
+        return jsonify({'message': 'Video downloaded and saved to MongoDB.'}), 200
+    else:
+        return jsonify({'error': 'Failed to download video.'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
