@@ -1,14 +1,20 @@
 from flask import Flask, request, jsonify, send_file
-from flask_cors import CORS  # Import CORS
+from flask_cors import CORS
 import requests
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 import re
 from datetime import datetime
 import os
+from pymongo import MongoClient
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app)
+
+# MongoDB connection
+mongo_client = MongoClient("mongodb+srv://raghavalawrence095:zktLJ8e0C0sJkUAM@cluster0.wgapa.mongodb.net/")
+db = mongo_client['your_database_name']  # Replace with your database name
+videos_collection = db['videos']  # Capped collection to store video metadata
 
 # Download function
 def download_file(url, filename):
@@ -40,8 +46,6 @@ def fetch_video_url(page_url):
         return None
 
     soup = BeautifulSoup(body.content, "html.parser")  # Parsing the content
-    print(soup.prettify())  # Print the HTML content for debugging
-
     extract_video_tag = soup.find("video", class_="hwa kVc MIw L4E")
 
     if extract_video_tag is None:
@@ -70,6 +74,14 @@ def download_video():
     filename = datetime.now().strftime("%d_%m_%H_%M_%S_") + ".mp4"
     print("Downloading file now!")
     download_file(video_download_url, filename)
+
+    # Save video metadata to MongoDB
+    video_data = {
+        'url': video_download_url,
+        'filename': filename,
+        'downloaded_at': datetime.now()
+    }
+    videos_collection.insert_one(video_data)  # Insert video metadata into the capped collection
 
     return send_file(filename, as_attachment=True)
 
