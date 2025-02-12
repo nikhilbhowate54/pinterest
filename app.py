@@ -7,6 +7,7 @@ import re
 from datetime import datetime
 import os
 from pymongo import MongoClient
+import gridfs  # Import GridFS
 
 app = Flask(__name__)
 CORS(app)
@@ -14,7 +15,7 @@ CORS(app)
 # MongoDB connection
 mongo_client = MongoClient("mongodb+srv://raghavalawrence095:zktLJ8e0C0sJkUAM@cluster0.wgapa.mongodb.net/")
 db = mongo_client['your_database_name']  # Replace with your database name
-videos_collection = db['videos']  # Capped collection to store video metadata
+fs = gridfs.GridFS(db)  # Create a GridFS instance
 
 # Download function
 def download_file(url, filename):
@@ -75,13 +76,17 @@ def download_video():
     print("Downloading file now!")
     download_file(video_download_url, filename)
 
-    # Save video metadata to MongoDB
+    # Save video file to MongoDB using GridFS
+    with open(filename, 'rb') as video_file:
+        fs.put(video_file, filename=filename, content_type='video/mp4')  # Store video in GridFS
+
+    # Optionally, you can also store metadata in a separate collection if needed
     video_data = {
         'url': video_download_url,
         'filename': filename,
         'downloaded_at': datetime.now()
     }
-    videos_collection.insert_one(video_data)  # Insert video metadata into the capped collection
+    # videos_collection.insert_one(video_data)  # Uncomment if you want to store metadata
 
     return send_file(filename, as_attachment=True)
 
